@@ -150,6 +150,9 @@ fn encrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
     var stdout_buf: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
+
+    const startTime = @as(f32, @floatFromInt(std.Io.Timestamp.now(io, .awake).toMilliseconds()));
+
     while (total_read < total) {
         const read = try reader.interface.readSliceShort(dataBuf[Cipher.nonce_length + Cipher.tag_length ..]);
 
@@ -172,7 +175,10 @@ fn encrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
         try stdout.interface.print("\r%{d:.2} complete", .{(@as(f32, @floatFromInt(total_read)) / @as(f32, @floatFromInt(total))) * 100});
     }
-    try stdout.interface.print("\n", .{});
+
+    const endTime = @as(f32, @floatFromInt(std.Io.Timestamp.now(io, .awake).toMilliseconds()));
+
+    try stdout.interface.print("\nfinished in {d:.2} seconds.\n", .{(endTime - startTime) / 1000});
     try stdout.interface.flush();
 }
 
@@ -214,6 +220,9 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
     var stdout_buf: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
+
+    const startTime = @as(f32, @floatFromInt(std.Io.Timestamp.now(io, .awake).toMilliseconds()));
+
     while (total_read < total) {
         const read = try reader.interface.readSliceShort(dataBuf);
 
@@ -243,6 +252,9 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
         try stdout.interface.print("\r%{d:.2} complete", .{(@as(f32, @floatFromInt(total_read)) / @as(f32, @floatFromInt(total))) * 100});
     }
-    try stdout.interface.print("\n", .{});
+
+    const endTime = @as(f32, @floatFromInt(std.Io.Timestamp.now(io, .awake).toMilliseconds()));
+
+    try stdout.interface.print("\nfinished in {d:.2} seconds.", .{(endTime - startTime) / 1000});
     try stdout.interface.flush();
 }
