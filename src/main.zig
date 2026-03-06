@@ -217,12 +217,12 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     while (total_read < total) {
         const read = try reader.interface.readSliceShort(dataBuf);
 
-        if (read < Cipher.nonce_length + Cipher.tag_length) {
-            return error.ReadTooSmall;
-        }
-
         if (read == 0) {
             break;
+        }
+
+        if (read < Cipher.nonce_length + Cipher.tag_length) {
+            return error.ReadTooSmall;
         }
 
         total_read += read;
