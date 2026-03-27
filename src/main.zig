@@ -5,7 +5,7 @@ const builtin = @import("builtin");
 const usage =
     \\zcrpt version 0.1.0
     \\
-    \\`zcrpt` is a tripple-s (simple small speedy) zero configuration cli encryption
+    \\zcrpt is a tripple-s (simple small speedy) zero configuration cli encryption
     \\tool. It is designed to be very simple for users, along with being as small and
     \\fast as possible.
     \\
