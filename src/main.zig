@@ -3,12 +3,18 @@ const Cipher = std.crypto.aead.aes_gcm_siv.Aes256GcmSiv;
 const builtin = @import("builtin");
 
 const usage =
-    \\zcrpt [flags]
+    \\zcrpt version 0.1.0
+    \\
+    \\`zcrpt` is a tripple-s (simple small speedy) zero configuration cli encryption
+    \\tool. It is designed to be very simple for users, along with being as small and
+    \\fast as possible.
+    \\
+    \\usage: zcrpt [flags]
     \\
     \\flags:
-    \\-e/d encrypt/decrypt mode
-    \\-i input path
-    \\-o output path (optional)
+    \\  -e/d encrypt/decrypt mode
+    \\  -i input path
+    \\  -o output path (optional)
     \\
 ;
 
