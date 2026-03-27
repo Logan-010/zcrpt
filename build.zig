@@ -1,8 +1,6 @@
 const std = @import("std");
 
 const targets = [_]std.Target.Query{ .{ .cpu_arch = .x86_64, .os_tag = .windows, .abi = .msvc }, .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .gnu }, .{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu }, .{ .cpu_arch = .aarch64, .os_tag = .macos, .abi = .none } };
-const release_modes = [_]std.builtin.OptimizeMode{ .ReleaseSafe, .ReleaseFast, .ReleaseSmall };
-
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -28,6 +26,7 @@ pub fn build(b: *std.Build) void {
     const release = b.step("release", "Build for all chosen targets and archetectures with all build types.");
     for (targets) |targetQuery| {
         const targetStr = targetQuery.zigTriple(b.allocator) catch @panic("out of memory :( get a better computer");
+        defer b.allocator.free(targetStr);
         const buildTarget = b.resolveTargetQuery(targetQuery);
 
         const name = std.fmt.allocPrint(b.allocator, "zcrpt-{s}", .{targetStr}) catch @panic("out of memory :( get a better computer");
