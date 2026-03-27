@@ -1,6 +1,6 @@
 # zcrpt
 
-`zcrpt` is a tripple-s (simple small speedy) zero configuration cli encryption
+`zcrpt` is a triple-s (simple small speedy) zero configuration CLI encryption
 tool. It is designed to be very simple for users, along with being as small and
 fast as possible.
 
@@ -11,7 +11,7 @@ public domain.
 
 If this isn't enough for you it's also cross-platform (any posix target
 supported by the zig compiler, and windows!), zero-dependancy, uses only ~4.9MB
-of memory when en/decrypting a file, and encrypts at a staggaring 7.0667 Gbps*
+of memory when en/decrypting a file, and encrypts at a staggering 7.0667 Gbps*
 rate.
 
 *ReleaseFast binary with native target (x86_64 Windows 11 with Intel 13900K
@@ -22,20 +22,22 @@ CPU), encrypting a 15.9GB file. Very isolated test, do your own!
 **For far superior performance, please compile from source. Its not hard I
 promise!**
 
-Download a pre-compiled binary from [here](./releases/latest).
+Download a precompiled binary from
+[here](https://github.com/Logan-010/zcrpt/releases/latest).
 
-For building from source see [Building](./#Building).
+For building from source see
+[Building](https://github.com/Logan-010/zcrpt#Building).
 
 # Building
 
 _Currently_ built on `zig` version `v0.16.0-dev.2682+02142a54d`.
 
-Requires `zig` compiler instaled and added to path along with `git`.
+Requires `zig` compiler installed and added to path along with `git`.
 
 Build using the simple and amazing zig build system.
 
-**Highly** recomended to build with `ReleaseSafe` optimizations and `native`
-build target to provide a balance of saftey and performance, however for
+**Highly** recommended to build with `ReleaseSafe` optimizations and `native`
+build target to provide a balance of safety and performance, however for
 absolute maximum performance build with `ReleaseFast` optimizations and `native`
 build target.
 
