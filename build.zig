@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const targets = [_]std.Target.Query{ .{ .cpu_arch = .x86_64, .os_tag = .windows, .abi = .msvc }, .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .gnu }, .{ .cpu_arch = .aarch64, .os_tag = .macos, .abi = .none } };
+const targets = [_]std.Target.Query{ .{ .cpu_arch = .x86_64, .os_tag = .windows, .abi = .msvc }, .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .gnu }, .{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .gnu }, .{ .cpu_arch = .aarch64, .os_tag = .macos, .abi = .none } };
 const release_modes = [_]std.builtin.OptimizeMode{ .ReleaseSafe, .ReleaseFast, .ReleaseSmall };
 
 pub fn build(b: *std.Build) void {
@@ -35,7 +35,7 @@ pub fn build(b: *std.Build) void {
 
         const buildExe = b.addExecutable(.{
             .name = name,
-            .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .single_threaded = true, .strip = true, .target = buildTarget, .optimize = .ReleaseFast, .link_libc = false, .link_libcpp = false }),
+            .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .single_threaded = true, .strip = true, .target = buildTarget, .optimize = .ReleaseSafe, .link_libc = false, .link_libcpp = false }),
         });
 
         const install = b.addInstallArtifact(buildExe, .{});
