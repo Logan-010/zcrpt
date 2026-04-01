@@ -11,10 +11,10 @@ public domain.
 
 If this isn't enough for you it's also cross-platform (any posix target
 supported by the zig compiler, and windows!), zero-dependancy, uses only ~4.9MB
-of memory when en/decrypting a file, and encrypts at a staggering 7.0667 Gbps*
+of memory when en/decrypting a file, and encrypts at a staggering 13.658 Gb/s*
 rate.
 
-*ReleaseFast binary with native target (x86_64 Windows 11 with Intel 13900K
+*`ReleaseFast` binary with `native` target (x86_64 Windows 11 with Intel 13900K
 CPU), encrypting a 15.9GB file. Very isolated test, do your own!
 
 # Get started
@@ -32,7 +32,8 @@ For building from source see
 
 _Currently_ built on `zig` version `v0.16.0-dev.2682+02142a54d`.
 
-Requires `zig` compiler installed and added to path along with `git`.
+Requires `zig` compiler installed and added to path along with `git` (for
+cloning project).
 
 Build using the simple and amazing zig build system.
 

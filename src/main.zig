@@ -1,9 +1,9 @@
 const std = @import("std");
-const Cipher = std.crypto.aead.aes_gcm_siv.Aes256GcmSiv;
 const builtin = @import("builtin");
+const aegis = std.crypto.aead.aegis;
 
 const usage =
-    \\zcrpt version 0.1.0
+    \\zcrpt version 0.2.0
     \\
     \\zcrpt is a tripple-s (simple small speedy) zero configuration cli encryption
     \\tool. It is designed to be very simple for users, along with being as small and
@@ -18,13 +18,46 @@ const usage =
     \\
 ;
 
-const heap_size = 3 * 1024 * 1024;
 const salt_size = 32;
-const key_size = Cipher.key_length;
+const key_size = 32;
 const buf_size = 2 * 1024 * 1024;
-const nonce_size = Cipher.nonce_length;
-const overhead = Cipher.tag_length;
-const capacity = nonce_size + overhead + buf_size;
+const nonce_size = 32;
+const u64_size = @sizeOf(u64);
+const overhead = 32;
+const capacity = (nonce_size - u64_size) + overhead + buf_size;
+
+pub fn Cipher() @TypeOf(aegis.Aegis256_256) {
+    const arch = builtin.target.cpu.arch;
+
+    if (arch == .x86 or arch == .x86_64) {
+        const has_avx512 = std.Target.x86.featureSetHas(builtin.cpu.features, .avx512f) and std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .vpclmulqdq);
+
+        const has_avx2 = std.Target.x86.featureSetHas(builtin.cpu.features, .avx2) and std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .vpclmulqdq);
+
+        if (has_avx512) return aegis.Aegis256X4_256;
+        if (has_avx2) return aegis.Aegis256X2_256;
+
+        return aegis.Aegis256_256;
+    }
+
+    if (arch == .aarch64) {
+        const has_crypto = std.Target.aarch64.featureSetHas(builtin.cpu.features, .aes) and std.Target.aarch64.featureSetHas(builtin.cpu.features, .pmull);
+
+        if (has_crypto) return aegis.Aegis256X2_256;
+
+        return aegis.Aegis256_256;
+    }
+
+    if (arch == .powerpc64) {
+        const has_altivec = std.Target.powerpc.featureSetHas(builtin.cpu.features, .altivec);
+
+        if (has_altivec) return aegis.Aegis256X2_256;
+
+        return aegis.Aegis256_256;
+    }
+
+    return aegis.Aegis256_256;
+}
 
 fn setEcho(io: std.Io, enable: bool) !void {
     switch (builtin.os.tag) {
@@ -45,7 +78,7 @@ fn setEcho(io: std.Io, enable: bool) !void {
                 return error.OperateFailed;
             }
         },
-        else => {
+        .linux, .macos, .freebsd => {
             const fd = std.Io.File.stdin().handle;
 
             var termios = try std.posix.tcgetattr(fd);
@@ -54,6 +87,7 @@ fn setEcho(io: std.Io, enable: bool) !void {
 
             try std.posix.tcsetattr(fd, .NOW, termios);
         },
+        else => {},
     }
 }
 
@@ -169,12 +203,13 @@ fn encrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     var counter: u64 = 0;
     var total_read: u64 = 0;
 
-    const progress = std.Progress.start(io, .{ .root_name = "processing", .estimated_total_items = 1 });
-    const cipher = progress.startFmt(@as(usize, total), "encrypting {s}", .{input});
-    defer cipher.end();
+    const progress = std.Progress.start(io, .{ .root_name = "processing", .estimated_total_items = @as(usize, total) });
+    defer progress.end();
+
+    const cipher = Cipher();
 
     while (total_read < total) {
-        const read = try inputFile.readStreaming(io, &[_][]u8{buf[nonce_size + overhead ..]});
+        const read = try inputFile.readStreaming(io, &[_][]u8{buf[(nonce_size - u64_size) + overhead ..]});
 
         if (read == 0) {
             break;
@@ -183,17 +218,18 @@ fn encrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
         total_read += read;
 
         var nonce: [nonce_size]u8 = undefined;
-        io.random(&nonce);
+        @memcpy(nonce[0..u64_size], std.mem.asBytes(&std.mem.nativeToBig(u64, counter)));
+        io.random(nonce[u64_size..]);
 
-        Cipher.encrypt(buf[nonce_size + overhead .. nonce_size + overhead + read], buf[nonce_size .. nonce_size + overhead], buf[nonce_size + overhead .. nonce_size + overhead + read], std.mem.asBytes(&counter), nonce, key);
+        cipher.encrypt(buf[(nonce_size - u64_size) + overhead .. (nonce_size - u64_size) + overhead + read], buf[(nonce_size - u64_size) .. (nonce_size - u64_size) + overhead], buf[(nonce_size - u64_size) + overhead .. (nonce_size - u64_size) + overhead + read], &[_]u8{}, nonce, key);
 
-        @memcpy(buf[0..nonce_size], &nonce);
+        @memcpy(buf[0..(nonce_size - u64_size)], nonce[u64_size..]);
 
-        try outputFile.writeStreamingAll(io, buf[0 .. nonce_size + overhead + read]);
+        try outputFile.writeStreamingAll(io, buf[0 .. (nonce_size - u64_size) + overhead + read]);
 
         counter += 1;
 
-        cipher.setCompletedItems(total_read);
+        progress.setCompletedItems(total_read);
     }
 }
 
@@ -202,27 +238,16 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     defer allocator.free(password);
 
     var outputFile = if (output) |path| try std.Io.Dir.cwd().createFile(io, path, .{}) else blk: {
-        var iter = std.mem.splitSequence(u8, input, ".enc");
-
-        var name: ?[]u8 = null;
-        defer if (name) |n| allocator.free(n);
-
-        var n = iter.next();
-        while (n) |next| {
-            n = iter.next();
-
-            if (n == null) {
-                break;
+        const name = blk2: {
+            if (std.mem.endsWith(u8, input, ".enc")) {
+                break :blk2 try allocator.dupe(u8, input[0 .. input.len - 4]);
             }
 
-            const oldN = name;
-            name = try std.fmt.allocPrint(allocator, "{s}{s}", .{ name orelse "", next });
-            if (oldN) |oN| {
-                allocator.free(oN);
-            }
-        }
+            break :blk2 try std.fmt.allocPrint(allocator, "{s}.dec", .{input});
+        };
+        defer allocator.free(name);
 
-        break :blk try std.Io.Dir.cwd().createFile(io, name orelse return error.InvalidFilename, .{});
+        break :blk try std.Io.Dir.cwd().createFile(io, name, .{});
     };
     defer outputFile.close(io);
 
@@ -244,9 +269,10 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     var counter: u64 = 0;
     var total_read: u64 = 32;
 
-    const progress = std.Progress.start(io, .{ .root_name = "processing", .estimated_total_items = 1 });
-    const cipher = progress.startFmt(@as(usize, total), "decrypting {s}", .{input});
-    defer cipher.end();
+    const progress = std.Progress.start(io, .{ .root_name = "processing", .estimated_total_items = @as(usize, total) });
+    defer progress.end();
+
+    const cipher = Cipher();
 
     while (total_read < total) {
         const read = try inputFile.readStreaming(io, &[_][]u8{buf});
@@ -255,7 +281,7 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
             break;
         }
 
-        if (read < nonce_size + overhead) {
+        if (read < (nonce_size - u64_size) + overhead) {
             return error.ReadTooSmall;
         }
 
@@ -263,28 +289,27 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
         var nonce: [nonce_size]u8 = undefined;
 
-        @memcpy(&nonce, buf[0..nonce_size]);
+        @memcpy(nonce[0..u64_size], std.mem.asBytes(&std.mem.nativeToBig(u64, counter)));
+        @memcpy(nonce[u64_size..], buf[0..(nonce_size - u64_size)]);
 
         var tag: [overhead]u8 = undefined;
 
-        @memcpy(&tag, buf[nonce_size .. nonce_size + overhead]);
+        @memcpy(&tag, buf[(nonce_size - u64_size) .. (nonce_size - u64_size) + overhead]);
 
-        try Cipher.decrypt(buf[nonce_size + overhead .. read], buf[nonce_size + overhead .. read], tag, std.mem.asBytes(&counter), nonce, key);
+        try cipher.decrypt(buf[(nonce_size - u64_size) + overhead .. read], buf[(nonce_size - u64_size) + overhead .. read], tag, &[_]u8{}, nonce, key);
 
-        try outputFile.writeStreamingAll(io, buf[nonce_size + overhead .. read]);
+        try outputFile.writeStreamingAll(io, buf[(nonce_size - u64_size) + overhead .. read]);
 
         counter += 1;
 
-        cipher.setCompletedItems(total_read);
+        progress.setCompletedItems(total_read);
     }
 }
 
 pub fn main(init: std.process.Init.Minimal) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var stf = std.heap.stackFallback(heap_size, gpa.allocator());
-    const allocator = stf.get();
-    var arena = std.heap.ArenaAllocator.init(allocator);
+    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
     defer arena.deinit();
     var runtime = std.Io.Threaded.init_single_threaded;
     defer runtime.deinit();
@@ -297,10 +322,10 @@ pub fn main(init: std.process.Init.Minimal) !void {
             try std.Io.File.stdout().writeStreamingAll(runtime.io(), usage);
         },
         .Encrypt => {
-            try encrypt(runtime.io(), allocator, cli.input.?, cli.output);
+            try encrypt(runtime.io(), gpa.allocator(), cli.input.?, cli.output);
         },
         .Decrypt => {
-            try decrypt(runtime.io(), allocator, cli.input.?, cli.output);
+            try decrypt(runtime.io(), gpa.allocator(), cli.input.?, cli.output);
         },
     }
 }
