@@ -27,34 +27,11 @@ const overhead = 32;
 const capacity = (nonce_size - u64_size) + overhead + buf_size;
 
 pub fn Cipher() @TypeOf(aegis.Aegis256_256) {
-    const arch = builtin.target.cpu.arch;
+    const can_v4 = (std.Target.x86.featureSetHas(builtin.cpu.features, .avx512f) and std.Target.x86.featureSetHas(builtin.cpu.features, .avx512vl)) or (std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2));
+    const can_v2 = (std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2)) or std.Target.x86.featureSetHas(builtin.cpu.features, .aes) or std.Target.aarch64.featureSetHas(builtin.cpu.features, .aes) or std.Target.aarch64.featureSetHas(builtin.cpu.features, .crypto) or std.Target.powerpc.featureSetHas(builtin.cpu.features, .altivec);
 
-    if (arch == .x86 or arch == .x86_64) {
-        const has_avx512 = std.Target.x86.featureSetHas(builtin.cpu.features, .avx512f) and std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .vpclmulqdq);
-
-        const has_avx2 = std.Target.x86.featureSetHas(builtin.cpu.features, .avx2) and std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .vpclmulqdq);
-
-        if (has_avx512) return aegis.Aegis256X4_256;
-        if (has_avx2) return aegis.Aegis256X2_256;
-
-        return aegis.Aegis256_256;
-    }
-
-    if (arch == .aarch64) {
-        const has_crypto = std.Target.aarch64.featureSetHas(builtin.cpu.features, .aes) and std.Target.aarch64.featureSetHas(builtin.cpu.features, .pmull);
-
-        if (has_crypto) return aegis.Aegis256X2_256;
-
-        return aegis.Aegis256_256;
-    }
-
-    if (arch == .powerpc64) {
-        const has_altivec = std.Target.powerpc.featureSetHas(builtin.cpu.features, .altivec);
-
-        if (has_altivec) return aegis.Aegis256X2_256;
-
-        return aegis.Aegis256_256;
-    }
+    if (can_v4) return aegis.Aegis256X4_256;
+    if (can_v2) return aegis.Aegis256X2_256;
 
     return aegis.Aegis256_256;
 }
