@@ -47,9 +47,9 @@ fn setEcho(io: std.Io, enable: bool) !void {
                 return error.OperateFailed;
             }
 
-            const newMode = if (enable) mode.Data | ENABLE_ECHO_MODE else mode.Data & ~ENABLE_ECHO_MODE;
+            const new_mode = if (enable) mode.Data | ENABLE_ECHO_MODE else mode.Data & ~ENABLE_ECHO_MODE;
 
-            mode = std.os.windows.CONSOLE.USER_IO.SET_MODE(newMode);
+            mode = std.os.windows.CONSOLE.USER_IO.SET_MODE(new_mode);
 
             if (try mode.operate(io, std.Io.File.stdin()) != .SUCCESS) {
                 return error.OperateFailed;
@@ -110,17 +110,17 @@ const Cli = struct {
     fn parse(args: []const [:0]const u8) Error!Self {
         var out: Self = .{};
 
-        var nextIsInput = false;
-        var nextIsOutput = false;
+        var next_is_input = false;
+        var next_is_output = false;
         for (args) |arg| {
-            if (nextIsInput) {
+            if (next_is_input) {
                 out.input = arg;
-                nextIsInput = false;
+                next_is_input = false;
                 continue;
             }
-            if (nextIsOutput) {
+            if (next_is_output) {
                 out.output = arg;
-                nextIsOutput = false;
+                next_is_output = false;
                 continue;
             }
             if (arg.len > 1 and arg[0] == '-') {
@@ -128,18 +128,18 @@ const Cli = struct {
                     switch (code) {
                         'e' => out.mode = .Encrypt,
                         'd' => out.mode = .Decrypt,
-                        'i' => nextIsInput = true,
-                        'o' => nextIsOutput = true,
+                        'i' => next_is_input = true,
+                        'o' => next_is_output = true,
                         'h' => out.mode = .Help,
                         else => {},
                     }
                 }
             }
         }
-        if (nextIsInput) {
+        if (next_is_input) {
             return Error.MissingInput;
         }
-        if (nextIsOutput) {
+        if (next_is_output) {
             return Error.MissingOutput;
         }
 
@@ -161,18 +161,18 @@ fn encrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     var key: [key_size]u8 = undefined;
     try std.crypto.pwhash.argon2.kdf(allocator, &key, password, &salt, .owasp_2id, .argon2id, io);
 
-    var inputFile = try std.Io.Dir.cwd().openFile(io, input, .{});
-    defer inputFile.close(io);
-    const total = try inputFile.length(io);
+    var input_file = try std.Io.Dir.cwd().openFile(io, input, .{});
+    defer input_file.close(io);
+    const total = try input_file.length(io);
 
-    var outputFile = if (output) |path| try std.Io.Dir.cwd().createFile(io, path, .{}) else blk: {
+    var output_file = if (output) |path| try std.Io.Dir.cwd().createFile(io, path, .{}) else blk: {
         const name = try std.fmt.allocPrint(allocator, "{s}.enc", .{input});
         defer allocator.free(name);
         break :blk try std.Io.Dir.cwd().createFile(io, name, .{});
     };
-    defer outputFile.close(io);
+    defer output_file.close(io);
 
-    try outputFile.writeStreamingAll(io, &salt);
+    try output_file.writeStreamingAll(io, &salt);
 
     var buf = try allocator.alloc(u8, capacity);
     defer allocator.free(buf);
@@ -186,7 +186,7 @@ fn encrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     const cipher = Cipher();
 
     while (total_read < total) {
-        const read = try inputFile.readStreaming(io, &[_][]u8{buf[(nonce_size - u64_size) + overhead ..]});
+        const read = try input_file.readStreaming(io, &[_][]u8{buf[(nonce_size - u64_size) + overhead ..]});
 
         if (read == 0) {
             break;
@@ -202,7 +202,7 @@ fn encrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
         @memcpy(buf[0..(nonce_size - u64_size)], nonce[u64_size..]);
 
-        try outputFile.writeStreamingAll(io, buf[0 .. (nonce_size - u64_size) + overhead + read]);
+        try output_file.writeStreamingAll(io, buf[0 .. (nonce_size - u64_size) + overhead + read]);
 
         counter += 1;
 
@@ -214,7 +214,7 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     const password = try getPassword(io, allocator, false);
     defer allocator.free(password);
 
-    var outputFile = if (output) |path| try std.Io.Dir.cwd().createFile(io, path, .{}) else blk: {
+    var output_file = if (output) |path| try std.Io.Dir.cwd().createFile(io, path, .{}) else blk: {
         const name = blk2: {
             if (std.mem.endsWith(u8, input, ".enc")) {
                 break :blk2 try allocator.dupe(u8, input[0 .. input.len - 4]);
@@ -226,14 +226,14 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
         break :blk try std.Io.Dir.cwd().createFile(io, name, .{});
     };
-    defer outputFile.close(io);
+    defer output_file.close(io);
 
-    var inputFile = try std.Io.Dir.cwd().openFile(io, input, .{});
-    defer inputFile.close(io);
-    const total = try inputFile.length(io);
+    var input_file = try std.Io.Dir.cwd().openFile(io, input, .{});
+    defer input_file.close(io);
+    const total = try input_file.length(io);
 
     var salt: [salt_size]u8 = undefined;
-    if (try inputFile.readStreaming(io, &[_][]u8{&salt}) != salt_size) {
+    if (try input_file.readStreaming(io, &[_][]u8{&salt}) != salt_size) {
         return error.FailedToReadSalt;
     }
 
@@ -252,7 +252,7 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     const cipher = Cipher();
 
     while (total_read < total) {
-        const read = try inputFile.readStreaming(io, &[_][]u8{buf});
+        const read = try input_file.readStreaming(io, &[_][]u8{buf});
 
         if (read == 0) {
             break;
@@ -275,7 +275,7 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
 
         try cipher.decrypt(buf[(nonce_size - u64_size) + overhead .. read], buf[(nonce_size - u64_size) + overhead .. read], tag, &[_]u8{}, nonce, key);
 
-        try outputFile.writeStreamingAll(io, buf[(nonce_size - u64_size) + overhead .. read]);
+        try output_file.writeStreamingAll(io, buf[(nonce_size - u64_size) + overhead .. read]);
 
         counter += 1;
 
