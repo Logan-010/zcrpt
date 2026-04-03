@@ -28,7 +28,7 @@ const capacity = (nonce_size - u64_size) + overhead + buf_size;
 
 pub fn Cipher() @TypeOf(aegis.Aegis256_256) {
     const can_v4 = (std.Target.x86.featureSetHas(builtin.cpu.features, .avx512f) and std.Target.x86.featureSetHas(builtin.cpu.features, .avx512vl)) or (std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2));
-    const can_v2 = (std.Target.x86.featureSetHas(builtin.cpu.features, .vaes) and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2)) or std.Target.x86.featureSetHas(builtin.cpu.features, .aes) or std.Target.aarch64.featureSetHas(builtin.cpu.features, .aes) or std.Target.aarch64.featureSetHas(builtin.cpu.features, .crypto) or std.Target.powerpc.featureSetHas(builtin.cpu.features, .altivec);
+    const can_v2 = std.Target.x86.featureSetHas(builtin.cpu.features, .aes) or std.Target.aarch64.featureSetHas(builtin.cpu.features, .aes) or std.Target.aarch64.featureSetHas(builtin.cpu.features, .crypto) or std.Target.powerpc.featureSetHas(builtin.cpu.features, .altivec);
 
     if (can_v4) return aegis.Aegis256X4_256;
     if (can_v2) return aegis.Aegis256X2_256;
@@ -283,26 +283,19 @@ fn decrypt(io: std.Io, allocator: std.mem.Allocator, input: []const u8, output: 
     }
 }
 
-pub fn main(init: std.process.Init.Minimal) !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
-    defer arena.deinit();
-    var runtime = std.Io.Threaded.init_single_threaded;
-    defer runtime.deinit();
-
-    const args = try init.args.toSlice(arena.allocator());
+pub fn main(init: std.process.Init) !void {
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
     const cli = try Cli.parse(args);
 
     switch (cli.mode) {
         .Help => {
-            try std.Io.File.stdout().writeStreamingAll(runtime.io(), usage);
+            try std.Io.File.stdout().writeStreamingAll(init.io, usage);
         },
         .Encrypt => {
-            try encrypt(runtime.io(), gpa.allocator(), cli.input.?, cli.output);
+            try encrypt(init.io, init.gpa, cli.input.?, cli.output);
         },
         .Decrypt => {
-            try decrypt(runtime.io(), gpa.allocator(), cli.input.?, cli.output);
+            try decrypt(init.io, init.gpa, cli.input.?, cli.output);
         },
     }
 }

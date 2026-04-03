@@ -2,7 +2,7 @@
     .name = .zcrpt,
     .version = "0.1.0",
     .fingerprint = 0x73f127731235b83b,
-    .minimum_zig_version = "0.16.0-dev.2682+02142a54d",
+    .minimum_zig_version = "0.16.0-dev.3066+da78940dd",
     .dependencies = .{},
     .paths = .{ "build.zig", "build.zig.zon", "src", "README.md", "UNLICENSE", ".gitignore" },
 }

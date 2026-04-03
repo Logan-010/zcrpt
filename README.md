@@ -30,7 +30,7 @@ For building from source see
 
 # Building
 
-_Currently_ built on `zig` version `v0.16.0-dev.2682+02142a54d`.
+_Currently_ built on `zig` version `v0.16.0-dev.3066+da78940dd`.
 
 Requires `zig` compiler installed and added to path along with `git` (for
 cloning project).
