@@ -1,6 +1,6 @@
 .{
     .name = .zcrpt,
-    .version = "0.1.0",
+    .version = "0.2.1",
     .fingerprint = 0x73f127731235b83b,
     .minimum_zig_version = "0.16.0-dev.3066+da78940dd",
     .dependencies = .{},

@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const aegis = std.crypto.aead.aegis;
 
 const usage =
-    \\zcrpt version 0.2.0
+    \\zcrpt version 0.2.1
     \\
     \\zcrpt is a tripple-s (simple small speedy) zero configuration cli encryption
     \\tool. It is designed to be very simple for users, along with being as small and
